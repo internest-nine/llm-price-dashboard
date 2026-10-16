@@ -1,0 +1,833 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>大模型价格仪表盘 · LLM Price Radar</title>
+<meta name="description" content="DeepSeek、Kimi、MiMo、GLM、通义千问、豆包、MiniMax、阶跃星辰、混元、文心一言等国产大模型与 OpenAI、Anthropic、Google 的 API 定价、免费额度与 Coding Plan 订阅对比，每日自动更新。">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,600;12..96,800&family=IBM+Plex+Mono:wght@400;500;600&family=Noto+Sans+SC:wght@400;500;700&family=Noto+Serif+SC:wght@700;900&display=swap" rel="stylesheet">
+<style>
+/* ============================================================
+   设计定调：工业仪表 × 编辑排版
+   - 受众：选型国产大模型的开发者，需要一眼看穿价格、额度、订阅
+   - 方向：Industrial / utilitarian（等宽数字、发丝线、密信息）
+            + Editorial 衬线大标题制造记忆点
+   - 主色：暖纸白 #f5f2ea（60%）/ 墨黑（30%）/ 中国红 #c8102e（10%）
+   - 记忆点：顶部黑色价格跑马灯 + 衬线巨型标题 + 红色「低价推荐」印章
+   ============================================================ */
+:root{
+  --bg:#f5f2ea;
+  --surface:#fffefa;
+  --surface-2:#efeade;
+  --ink:#1c1814;
+  --ink-soft:#3a352d;
+  --muted:#6f6a5e;
+  --line:rgba(28,24,20,.14);
+  --line-strong:rgba(28,24,20,.32);
+  --accent:#c8102e;
+  --accent-deep:#9d0c23;
+  --accent-tint:rgba(200,16,46,.08);
+  --ok:#1d6b4f;
+  --radius-sm:4px; --radius-md:8px; --radius-lg:14px;
+  --shadow-1:0 2px 8px rgba(28,24,20,.08);
+  --shadow-2:0 8px 28px rgba(28,24,20,.12);
+  --ease-out:cubic-bezier(.16,1,.3,1);
+  --dur-fast:160ms; --dur-base:320ms; --dur-slow:640ms;
+  --font-display:"Bricolage Grotesque","Noto Serif SC",serif;
+  --font-serif:"Noto Serif SC",serif;
+  --font-body:"Noto Sans SC",sans-serif;
+  --font-mono:"IBM Plex Mono",monospace;
+}
+*{margin:0;padding:0;box-sizing:border-box}
+html{scroll-behavior:smooth}
+body{
+  background:var(--bg);
+  color:var(--ink);
+  font-family:var(--font-body);
+  font-size:15px;
+  line-height:1.7;
+  -webkit-font-smoothing:antialiased;
+  overflow-x:hidden;
+}
+/* 氛围层：发丝网格 + 顶部红色光晕 + 噪点 */
+body::before{
+  content:"";position:fixed;inset:0;z-index:0;pointer-events:none;
+  background:
+    linear-gradient(rgba(28,24,20,.035) 1px,transparent 1px),
+    linear-gradient(90deg,rgba(28,24,20,.035) 1px,transparent 1px);
+  background-size:56px 56px;
+  mask-image:linear-gradient(180deg,#000 0%,transparent 78%);
+  -webkit-mask-image:linear-gradient(180deg,#000 0%,transparent 78%);
+}
+body::after{
+  content:"";position:fixed;inset:0;z-index:0;pointer-events:none;opacity:.5;
+  background:
+    radial-gradient(52rem 26rem at 88% -6%,rgba(200,16,46,.10),transparent 62%),
+    radial-gradient(40rem 24rem at -8% 12%,rgba(28,24,20,.05),transparent 60%);
+}
+::selection{background:var(--accent);color:#fff}
+a{color:inherit}
+button{font-family:inherit;cursor:pointer}
+:focus-visible{outline:2px solid var(--accent);outline-offset:2px;border-radius:2px}
+
+.wrap{position:relative;z-index:1;max-width:1240px;margin:0 auto;padding:0 clamp(16px,4vw,48px)}
+
+/* ---------- 顶部跑马灯 ---------- */
+.ticker{
+  background:var(--ink);color:#f5f2ea;overflow:hidden;position:relative;z-index:2;
+  border-bottom:3px solid var(--accent);
+}
+.ticker-track{
+  display:flex;gap:0;width:max-content;
+  animation:ticker 46s linear infinite;
+  font-family:var(--font-mono);font-size:12.5px;letter-spacing:.04em;
+  padding:9px 0;white-space:nowrap;
+}
+.ticker:hover .ticker-track{animation-play-state:paused}
+.ticker span{padding:0 26px;position:relative}
+.ticker span::after{content:"◆";color:var(--accent);position:absolute;right:-4px;font-size:8px;top:3px}
+.ticker b{color:#ffd9df;font-weight:600}
+.ticker .low{color:#7ee2b8}
+@keyframes ticker{from{transform:translateX(0)}to{transform:translateX(-50%)}}
+
+/* ---------- Header：非对称 editorial ---------- */
+header.hero{padding:clamp(40px,7vw,84px) 0 36px;position:relative}
+.hero-grid{display:grid;grid-template-columns:1.5fr 1fr;gap:clamp(24px,5vw,72px);align-items:end}
+.eyebrow{
+  display:flex;align-items:center;gap:14px;
+  font-family:var(--font-mono);font-size:12px;letter-spacing:.22em;text-transform:uppercase;
+  color:var(--accent);font-weight:600;margin-bottom:22px;
+}
+.eyebrow::before{content:"";width:44px;height:3px;background:var(--accent)}
+h1{
+  font-family:var(--font-serif);font-weight:900;
+  font-size:clamp(44px,7.2vw,92px);
+  line-height:1.02;letter-spacing:.01em;
+  margin-bottom:26px;
+}
+h1 .lite{color:var(--muted);font-weight:700}
+h1 em{
+  font-style:normal;color:var(--accent);
+  border-bottom:10px solid var(--accent-tint);
+}
+.hero-desc{max-width:56ch;color:var(--ink-soft);font-size:16px}
+.hero-desc b{font-weight:700;color:var(--ink)}
+.hero-meta{
+  margin-top:26px;display:flex;flex-wrap:wrap;gap:10px 28px;
+  font-family:var(--font-mono);font-size:12.5px;color:var(--muted);
+}
+.hero-meta i{font-style:normal;color:var(--ink);font-weight:600}
+
+/* 焦点块：今日最低价 */
+.spotlight{
+  background:var(--ink);color:#f5f2ea;
+  padding:30px 30px 26px;border-radius:var(--radius-lg);
+  position:relative;overflow:hidden;
+  box-shadow:var(--shadow-2);
+}
+.spotlight::before{
+  content:"";position:absolute;inset:0;
+  background:radial-gradient(30rem 18rem at 100% 0%,rgba(200,16,46,.4),transparent 65%);
+}
+.spotlight > *{position:relative}
+.spotlight .tag{
+  font-family:var(--font-mono);font-size:11px;letter-spacing:.2em;
+  color:#ffb3c0;text-transform:uppercase;margin-bottom:14px;display:block;
+}
+.spotlight .num{
+  font-family:var(--font-display);font-weight:800;
+  font-size:clamp(52px,6vw,76px);line-height:1;letter-spacing:-.03em;
+  font-variant-numeric:tabular-nums;
+}
+.spotlight .num small{font-size:.32em;font-weight:600;color:#b9b2a4;letter-spacing:0}
+.spotlight .who{margin-top:10px;font-weight:700;font-size:17px}
+.spotlight .sub{margin-top:6px;font-size:13px;color:#b9b2a4}
+.spotlight .stamp{
+  position:absolute;top:22px;right:-38px;transform:rotate(14deg);
+  background:var(--accent);color:#fff;font-weight:700;font-size:12px;
+  padding:6px 44px;letter-spacing:.14em;box-shadow:var(--shadow-1);
+}
+
+/* ---------- 统计条 ---------- */
+.stats{
+  display:grid;grid-template-columns:repeat(4,1fr);
+  border-top:2px solid var(--ink);border-bottom:1px solid var(--line);
+  margin:8px 0 44px;
+}
+.stat{padding:20px 22px 18px;border-left:1px solid var(--line)}
+.stat:first-child{border-left:none}
+.stat .k{font-family:var(--font-mono);font-size:11.5px;letter-spacing:.14em;color:var(--muted);text-transform:uppercase}
+.stat .v{font-family:var(--font-display);font-weight:800;font-size:34px;line-height:1.15;letter-spacing:-.02em;font-variant-numeric:tabular-nums;margin-top:4px}
+.stat .v small{font-size:.42em;color:var(--muted);font-weight:600}
+.stat.red .v{color:var(--accent)}
+
+/* ---------- 控制栏 ---------- */
+.controls{
+  display:flex;flex-wrap:wrap;gap:14px;align-items:center;justify-content:space-between;
+  margin-bottom:26px;padding:16px 20px;
+  background:var(--surface);border:1px solid var(--line);border-radius:var(--radius-md);
+  box-shadow:var(--shadow-1);
+}
+.ctrl-group{display:flex;flex-wrap:wrap;gap:8px;align-items:center}
+.ctrl-label{font-family:var(--font-mono);font-size:11.5px;color:var(--muted);letter-spacing:.12em;margin-right:4px;text-transform:uppercase}
+.chip{
+  border:1px solid var(--line-strong);background:transparent;color:var(--ink-soft);
+  padding:7px 15px;border-radius:99px;font-size:13px;font-weight:500;
+  transition:all var(--dur-fast) var(--ease-out);min-height:36px;
+}
+.chip:hover{border-color:var(--ink);color:var(--ink)}
+.chip[aria-pressed="true"]{background:var(--ink);border-color:var(--ink);color:#f5f2ea}
+.chip.accent[aria-pressed="true"]{background:var(--accent);border-color:var(--accent);color:#fff}
+select.sort{
+  border:1px solid var(--line-strong);background:var(--surface);color:var(--ink);
+  padding:8px 14px;border-radius:99px;font-size:13px;font-weight:500;min-height:38px;
+  font-family:var(--font-body);
+}
+
+/* ---------- 区块标题 ---------- */
+.sec-head{display:flex;align-items:baseline;gap:18px;margin:56px 0 22px}
+.sec-head .no{font-family:var(--font-mono);color:var(--accent);font-weight:600;font-size:13px;letter-spacing:.1em}
+.sec-head h2{font-family:var(--font-serif);font-weight:900;font-size:clamp(24px,3.4vw,34px);letter-spacing:.01em}
+.sec-head .rule{flex:1;height:1px;background:var(--line);align-self:center}
+.sec-head .hint{font-family:var(--font-mono);font-size:12px;color:var(--muted)}
+
+/* ---------- 卡片网格 ---------- */
+.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(330px,1fr));gap:18px}
+.card{
+  background:var(--surface);border:1px solid var(--line);border-radius:var(--radius-md);
+  padding:22px 22px 18px;position:relative;
+  transition:transform var(--dur-base) var(--ease-out),box-shadow var(--dur-base) var(--ease-out),border-color var(--dur-base);
+  display:flex;flex-direction:column;gap:14px;
+}
+.card:hover{transform:translateY(-4px);box-shadow:var(--shadow-2);border-color:var(--line-strong)}
+.card.recommended{border-color:var(--accent);border-width:2px;padding:21px 21px 17px}
+.card.recommended::before{
+  content:"";position:absolute;inset:0;border-radius:inherit;pointer-events:none;
+  background:linear-gradient(180deg,var(--accent-tint),transparent 34%);
+}
+.card-top{display:flex;align-items:center;gap:12px}
+.badge{
+  width:42px;height:42px;border-radius:10px;flex:none;
+  display:grid;place-items:center;color:#fff;
+  font-family:var(--font-mono);font-weight:600;font-size:14px;letter-spacing:.02em;
+}
+.vendor{font-weight:700;font-size:15.5px;line-height:1.3}
+.vendor small{display:block;font-weight:400;font-size:12px;color:var(--muted);font-family:var(--font-mono)}
+.tier{
+  margin-left:auto;font-family:var(--font-mono);font-size:11px;letter-spacing:.08em;
+  border:1px solid var(--line-strong);border-radius:4px;padding:3px 8px;color:var(--muted);flex:none;
+}
+.tier.flagship{color:var(--accent-deep);border-color:rgba(200,16,46,.4);background:var(--accent-tint)}
+.stamp-rec{
+  position:absolute;top:-13px;right:16px;
+  background:var(--accent);color:#fff;font-size:11.5px;font-weight:700;letter-spacing:.1em;
+  padding:4px 12px;border-radius:4px;box-shadow:var(--shadow-1);
+  font-family:var(--font-mono);
+}
+.model-name{font-family:var(--font-display);font-weight:800;font-size:21px;letter-spacing:-.01em;line-height:1.2}
+.price-row{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;border-top:1px solid var(--line);border-bottom:1px solid var(--line);padding:12px 0}
+.price-cell .pk{font-family:var(--font-mono);font-size:10.5px;color:var(--muted);letter-spacing:.1em}
+.price-cell .pv{font-family:var(--font-mono);font-weight:600;font-size:17px;font-variant-numeric:tabular-nums;margin-top:2px}
+.price-cell .pv small{font-size:10px;color:var(--muted);font-weight:400}
+.price-cell.hl .pv{color:var(--accent)}
+.idx{display:flex;align-items:center;gap:10px;font-family:var(--font-mono);font-size:11.5px;color:var(--muted)}
+.idx .bar{flex:1;height:8px;background:var(--surface-2);border-radius:99px;overflow:hidden}
+.idx .bar i{display:block;height:100%;background:var(--ink);border-radius:99px}
+.card.recommended .idx .bar i{background:var(--accent)}
+.idx b{color:var(--ink);font-weight:600;font-variant-numeric:tabular-nums}
+.free-line{font-size:13.5px;color:var(--ink-soft);display:flex;gap:8px;align-items:flex-start}
+.free-line .fl-tag{
+  font-family:var(--font-mono);font-size:10.5px;letter-spacing:.08em;flex:none;
+  border:1px solid rgba(29,107,79,.4);color:var(--ok);background:rgba(29,107,79,.07);
+  padding:2px 7px;border-radius:4px;margin-top:2px;
+}
+.free-line .fl-tag.none{border-color:var(--line-strong);color:var(--muted);background:transparent}
+.plan-line{display:flex;align-items:center;gap:9px;flex-wrap:wrap;font-size:13.5px}
+.plan-yes{
+  display:inline-flex;align-items:center;gap:7px;font-weight:600;
+  background:var(--ink);color:#f5f2ea;padding:5px 12px;border-radius:99px;font-size:12.5px;
+}
+.plan-yes b{font-family:var(--font-mono);color:#ffd9df}
+.plan-no{
+  display:inline-flex;align-items:center;gap:7px;
+  border:1.5px dashed var(--line-strong);color:var(--muted);
+  padding:5px 12px;border-radius:99px;font-size:12.5px;font-weight:500;
+}
+.card-links{margin-top:auto;display:flex;gap:8px;padding-top:6px;border-top:1px dashed var(--line)}
+.btn-link{
+  flex:1;display:inline-flex;align-items:center;justify-content:center;gap:6px;
+  text-decoration:none;font-size:12.5px;font-weight:600;
+  border:1px solid var(--line-strong);border-radius:6px;padding:9px 10px;min-height:40px;
+  transition:all var(--dur-fast) var(--ease-out);
+}
+.btn-link.primary{background:var(--ink);color:#f5f2ea;border-color:var(--ink)}
+.btn-link:hover{background:var(--accent);border-color:var(--accent);color:#fff}
+.btn-link .arr{transition:transform var(--dur-fast) var(--ease-out)}
+.btn-link:hover .arr{transform:translate(2px,-2px)}
+
+/* ---------- 对比表格 ---------- */
+.table-scroll{overflow-x:auto;border:1px solid var(--line);border-radius:var(--radius-md);background:var(--surface);box-shadow:var(--shadow-1)}
+table{width:100%;border-collapse:collapse;min-width:980px;font-size:13.5px}
+thead th{
+  font-family:var(--font-mono);font-size:11px;letter-spacing:.12em;text-transform:uppercase;
+  color:var(--muted);text-align:left;padding:14px 16px;border-bottom:2px solid var(--ink);
+  white-space:nowrap;background:var(--surface-2);
+}
+tbody td{padding:13px 16px;border-bottom:1px solid var(--line);vertical-align:middle}
+tbody tr:last-child td{border-bottom:none}
+tbody tr:hover{background:var(--accent-tint)}
+td.num{font-family:var(--font-mono);font-variant-numeric:tabular-nums;font-weight:600;white-space:nowrap}
+td .mini-vendor{font-weight:700}
+td .mini-vendor small{display:block;font-weight:400;color:var(--muted);font-size:11.5px;font-family:var(--font-mono)}
+.pill{display:inline-block;font-family:var(--font-mono);font-size:11px;padding:3px 9px;border-radius:99px;white-space:nowrap}
+.pill.yes{background:var(--ink);color:#f5f2ea}
+.pill.no{border:1.5px dashed var(--line-strong);color:var(--muted)}
+.pill.rec{background:var(--accent);color:#fff;font-weight:700}
+.tbl-link{font-family:var(--font-mono);font-size:12px;font-weight:600;color:var(--accent-deep);text-decoration:none;border-bottom:1px solid var(--accent);white-space:nowrap}
+.tbl-link:hover{color:var(--accent)}
+
+/* ---------- Coding Plan 专区 ---------- */
+.plan-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:16px}
+.plan-card{
+  background:var(--surface);border:1px solid var(--line);border-left:4px solid var(--ink);
+  border-radius:var(--radius-md);padding:20px;display:flex;flex-direction:column;gap:10px;
+  transition:transform var(--dur-base) var(--ease-out),box-shadow var(--dur-base) var(--ease-out);
+}
+.plan-card:hover{transform:translateY(-3px);box-shadow:var(--shadow-2)}
+.plan-card .pv-head{display:flex;align-items:center;gap:10px}
+.plan-card .pv-head .badge{width:34px;height:34px;border-radius:8px;font-size:12px}
+.plan-card .pv-name{font-weight:700;font-size:14.5px}
+.plan-card .pv-price{font-family:var(--font-display);font-weight:800;font-size:30px;letter-spacing:-.02em;font-variant-numeric:tabular-nums}
+.plan-card .pv-price small{font-size:.4em;color:var(--muted);font-weight:600}
+.plan-card ul{list-style:none;font-size:13px;color:var(--ink-soft);display:flex;flex-direction:column;gap:5px}
+.plan-card li{padding-left:16px;position:relative}
+.plan-card li::before{content:"▸";position:absolute;left:0;color:var(--accent);font-size:11px;top:1px}
+.plan-card.no-plan{border-left-color:var(--line-strong);background:repeating-linear-gradient(-45deg,var(--surface),var(--surface) 12px,var(--surface-2) 12px,var(--surface-2) 24px)}
+.plan-card.no-plan .pv-price{font-size:20px;color:var(--muted)}
+
+/* ---------- Footer ---------- */
+footer{margin:72px 0 0;border-top:2px solid var(--ink);padding:36px 0 56px}
+.foot-grid{display:grid;grid-template-columns:1.4fr 1fr;gap:40px}
+.foot-grid h3{font-family:var(--font-mono);font-size:12px;letter-spacing:.16em;color:var(--muted);text-transform:uppercase;margin-bottom:14px}
+.foot-grid p{font-size:13.5px;color:var(--ink-soft);max-width:62ch}
+.foot-grid p + p{margin-top:10px}
+.src-list{list-style:none;font-size:12.5px;font-family:var(--font-mono);color:var(--ink-soft);display:flex;flex-direction:column;gap:6px}
+.src-list a{color:var(--accent-deep);text-decoration:none;border-bottom:1px dotted var(--accent)}
+.src-list a:hover{color:var(--accent)}
+.foot-note{
+  margin-top:34px;padding:14px 18px;border:1px dashed var(--line-strong);border-radius:var(--radius-md);
+  font-size:12.5px;color:var(--muted);font-family:var(--font-mono);
+}
+
+/* ---------- 入场动效 ---------- */
+.reveal{opacity:0;transform:translateY(22px)}
+.reveal.in{opacity:1;transform:none;transition:opacity var(--dur-base) var(--ease-out),transform var(--dur-base) var(--ease-out)}
+.reveal:nth-child(2){transition-delay:70ms}
+.reveal:nth-child(3){transition-delay:140ms}
+.reveal:nth-child(4){transition-delay:210ms}
+@media (prefers-reduced-motion: reduce){
+  .reveal{opacity:1;transform:none;transition:none}
+  .ticker-track{animation:none}
+  html{scroll-behavior:auto}
+}
+
+/* ---------- 响应式 ---------- */
+@media (max-width:960px){
+  .hero-grid{grid-template-columns:1fr;align-items:start}
+  .stats{grid-template-columns:repeat(2,1fr)}
+  .stat:nth-child(3){border-left:none}
+  .stat{border-top:1px solid var(--line)}
+  .stat:nth-child(-n+2){border-top:none}
+  .foot-grid{grid-template-columns:1fr}
+}
+@media (max-width:560px){
+  .grid{grid-template-columns:1fr}
+  .controls{flex-direction:column;align-items:stretch}
+  .price-row{grid-template-columns:repeat(3,1fr);gap:4px}
+  .price-cell .pv{font-size:15px}
+}
+</style>
+</head>
+<body>
+
+<!-- 价格跑马灯 -->
+<div class="ticker" aria-label="实时价格速览">
+  <div class="ticker-track" id="tickerTrack"></div>
+</div>
+
+<div class="wrap">
+
+  <!-- ============ HERO ============ -->
+  <header class="hero">
+    <div class="hero-grid">
+      <div>
+        <div class="eyebrow">LLM Price Radar · 大模型价格雷达</div>
+        <h1>大模型<br><em>价格仪表盘</em> <span class="lite">/ 2026</span></h1>
+        <p class="hero-desc">
+          一页看透 <b>DeepSeek、Kimi、MiMo、GLM、通义千问、豆包、MiniMax、阶跃星辰、混元、文心一言</b>
+          十大国产大模型与 <b>OpenAI、Anthropic、Google</b> 三家海外厂商的 API 单价、免费额度与 Coding Plan 订阅价。按典型负载（输入:输出 ≈ 3:1）折算
+          <b>综合指数</b>，低价模型自动盖上红色推荐印章。数据每日 08:00 自动抓取官网更新。
+        </p>
+        <div class="hero-meta">
+          <span>数据更新 <i id="updateTime">2026-10-16</i></span>
+          <span>覆盖厂商 <i>13 家</i></span>
+          <span>计价口径 <i>元 / 百万 tokens</i></span>
+          <span>自动更新 <i>每日 08:00</i></span>
+        </div>
+      </div>
+      <aside class="spotlight reveal in">
+        <span class="tag">Lowest Composite Index · 今日最低综合价</span>
+        <div class="num" id="spotNum">¥1.0<small> /M</small></div>
+        <div class="who" id="spotWho">ERNIE Lite Pro · 百度文心</div>
+        <div class="sub">轻量档综合指数 · 输入 ¥0.2 / 输出 ¥0.4 每百万 tokens</div>
+        <div class="stamp">低价推荐</div>
+      </aside>
+    </div>
+  </header>
+
+  <!-- ============ 统计条 ============ -->
+  <section class="stats reveal" aria-label="关键统计">
+    <div class="stat">
+      <div class="k">最低输入价 / 旗舰</div>
+      <div class="v" id="stMinIn">¥0.2<small> /M</small></div>
+    </div>
+    <div class="stat red">
+      <div class="k">最低 Coding Plan</div>
+      <div class="v" id="stMinPlan">¥29<small> /月</small></div>
+    </div>
+    <div class="stat">
+      <div class="k">最大免费额度</div>
+      <div class="v" id="stMaxFree">7000<small> 万 tokens</small></div>
+    </div>
+    <div class="stat">
+      <div class="k">无 Coding Plan</div>
+      <div class="v" id="stNoPlan">2<small> 家</small></div>
+    </div>
+  </section>
+
+  <!-- ============ 控制栏 ============ -->
+  <div class="controls" role="toolbar" aria-label="排序与筛选">
+    <div class="ctrl-group">
+      <span class="ctrl-label">排序</span>
+      <select class="sort" id="sortSel" aria-label="排序方式">
+        <option value="idx">综合指数 ↑</option>
+        <option value="in">输入价 ↑</option>
+        <option value="out">输出价 ↑</option>
+        <option value="plan">Coding Plan 月费 ↑</option>
+        <option value="free">免费额度 ↓</option>
+      </select>
+    </div>
+    <div class="ctrl-group" id="filterGroup">
+      <span class="ctrl-label">筛选</span>
+      <button class="chip accent" data-filter="all" aria-pressed="true">全部</button>
+      <button class="chip" data-filter="plan" aria-pressed="false">有 Coding Plan</button>
+      <button class="chip" data-filter="noplan" aria-pressed="false">无 Coding Plan</button>
+      <button class="chip" data-filter="flagship" aria-pressed="false">旗舰模型</button>
+    </div>
+  </div>
+
+  <!-- ============ 模型卡片 ============ -->
+  <section aria-label="模型价格卡片">
+    <div class="sec-head">
+      <span class="no">01</span><h2>模型定价总览</h2>
+      <span class="rule"></span><span class="hint">价格为官网刊例，缓存命中/分档规则见卡片备注</span>
+    </div>
+    <div class="grid" id="cardGrid"></div>
+  </section>
+
+  <!-- ============ 对比表 ============ -->
+  <section aria-label="定价对比表">
+    <div class="sec-head">
+      <span class="no">02</span><h2>逐项对比</h2>
+      <span class="rule"></span><span class="hint">红色行 = 低价推荐 TOP 3</span>
+    </div>
+    <div class="table-scroll reveal">
+      <table id="cmpTable">
+        <thead>
+          <tr>
+            <th>厂商 / 模型</th><th>定位</th><th>输入 ¥/M</th><th>输出 ¥/M</th><th>缓存命中 ¥/M</th>
+            <th>免费额度</th><th>Coding Plan</th><th>套餐起步价</th><th>综合指数</th><th>官网</th>
+          </tr>
+        </thead>
+        <tbody id="cmpBody"></tbody>
+      </table>
+    </div>
+  </section>
+
+  <!-- ============ Coding Plan 专区 ============ -->
+  <section aria-label="Coding Plan 订阅对比">
+    <div class="sec-head">
+      <span class="no">03</span><h2>Coding Plan 订阅对比</h2>
+      <span class="rule"></span><span class="hint">斜纹卡片 = 无 Coding Plan，仅按量付费</span>
+    </div>
+    <div class="plan-grid" id="planGrid"></div>
+  </section>
+
+  <!-- ============ Footer ============ -->
+  <footer>
+    <div class="foot-grid">
+      <div>
+        <h3>About · 关于本仪表盘</h3>
+        <p>
+          本页数据于 <b>2026-10-16</b> 采自各厂商官方定价页与开放平台公告，由自动化任务每日 08:00 刷新。
+          所有价格为人民币刊例价（元/百万 tokens）；海外三家（OpenAI / Anthropic / Google）与 MiniMax 按
+          1 USD = 6.7220 CNY（2026-10-16 人民币汇率中间价）折算，美元原价见各卡片备注。
+        </p>
+        <p>
+          「综合指数」= 输入价 × 3 + 输出价，模拟典型对话负载（输入:输出 ≈ 3:1），用于横向比价；
+          实际成本取决于缓存命中率、上下文长度分档与高峰/空闲时段。采购前请以官网实时价格为准。
+        </p>
+      </div>
+      <div>
+        <h3>Sources · 数据来源</h3>
+        <ul class="src-list" id="srcList"></ul>
+      </div>
+    </div>
+    <div class="foot-note">
+      扩展新模型：编辑页面底部 &lt;script&gt; 中的 MODELS 数组，按现有字段追加一条记录即可，卡片、表格、跑马灯与推荐印章会自动渲染。
+      本页面为价格信息聚合工具，与所列厂商无隶属关系；不构成任何采购建议。
+    </div>
+  </footer>
+
+</div>
+
+<script>
+/* ============================================================
+   数据层：MODELS 数组 —— 每日自动化任务只更新此处的价格字段
+   字段说明：
+   vendor      厂商中文名
+   vendorEn    厂商英文/简称（徽章文字）
+   color       品牌色（徽章 & 条形图）
+   model       主力计价模型名
+   tier        定位：flagship 旗舰 / balanced 均衡 / lite 轻量 / oversea 海外
+   in/out/cache  输入 / 输出 / 缓存命中 价格（元/百万 tokens；海外与 MiniMax 为按 FX 折算的表达式）
+   priceNote   计价补充说明（分档、高峰时段、美元原价等）
+   idx         综合指数（输入×3+输出，可由脚本重算）
+   free        免费额度描述
+   freeVal     免费额度估值（万 tokens，用于排序；0 = 无）
+   hasPlan     是否有 Coding Plan
+   planName    Coding Plan 名称
+   planPrice   入门档月费（元/月；无则 null；0 = 限时免费）
+   planDetail  套餐额度说明
+   tools       支持的编程工具
+   links       { api: 定价页, plan: 订阅页 }
+   FX          美元兑人民币汇率（中间价），海外记录价格按此折算
+   ============================================================ */
+const FX = 6.7220; // 1 USD = 6.7220 CNY（2026-10-16 人民币汇率中间价）
+const MODELS = [
+  {
+    vendor:"深度求索", vendorEn:"DS", color:"#4d6bfe",
+    model:"DeepSeek-V4.1-Flash", tier:"lite",
+    in:1.0, out:4.0, cache:0.02,
+    priceNote:"高峰时段翻倍（工作日 9-12/14-18 点）；V4-Pro 空闲价输入 ¥4.5 / 输出 ¥13.5",
+    free:"新账户赠送余额（额度未公布）+ 网页版 chat.deepseek.com 免费无限用",
+    freeVal:0, hasPlan:false, planName:null, planPrice:null,
+    planDetail:"纯按量付费，无订阅套餐", tools:["—"],
+    links:{ api:"https://api-docs.deepseek.com/zh-cn/quick_start/pricing", plan:"https://platform.deepseek.com" }
+  },
+  {
+    vendor:"月之暗面 Kimi", vendorEn:"KI", color:"#2b2b3a",
+    model:"kimi-k2.6", tier:"flagship",
+    in:6.5, out:27.0, cache:1.1,
+    priceNote:"K2.7 Code 同价；旗舰 K3 为 ¥20 / ¥100（1M 上下文，缓存命中 ¥2.00）",
+    free:"无免费 API 额度（需充值解锁限速档）",
+    freeVal:0, hasPlan:true, planName:"Kimi Code",
+    planPrice:39, planDetail:"Andante ¥39/月 · Moderato ¥79/月 · Allegretto ¥159/月，额度每周刷新",
+    tools:["Kimi CLI","Claude Code","VS Code 插件"],
+    links:{ api:"https://platform.moonshot.cn", plan:"https://www.kimi.com/code" }
+  },
+  {
+    vendor:"小米 MiMo", vendorEn:"MI", color:"#ff6900",
+    model:"MiMo-V2.6 系列", tier:"flagship",
+    in:0.7, out:2.1, cache:0.07,
+    priceNote:"v2-flash 国内价；夜间 00-08 点 0.8 倍消耗；TTS 模型限时免费",
+    free:"新用户 $2 免费试用额度（无需信用卡）",
+    freeVal:14, hasPlan:true, planName:"MiMo Claw 套餐",
+    planPrice:39, planDetail:"连续包月 Lite ¥39 · Standard ¥99 · Pro ¥329 · Max ¥659；按年计费折合 ¥34 / ¥87 / ¥289 / ¥579 每月；按 Credits 计，支持 OpenClaw、Codex、MiMo Claw",
+    tools:["OpenClaw","Codex","MiMo Claw"],
+    links:{ api:"https://platform.xiaomimimo.com", plan:"https://platform.xiaomimimo.com" }
+  },
+  {
+    vendor:"智谱 GLM", vendorEn:"GL", color:"#1f5eff",
+    model:"GLM-5.3-Flash", tier:"balanced",
+    in:0.8, out:2.8, cache:0.23,
+    priceNote:"旗舰 GLM-5.3 为 ¥8 / ¥28（缓存命中 ¥2）；Flash 限时五折 ¥0.4 / ¥1.4；Batch API 五折",
+    free:"新用户注册送 2000 万 tokens · 邀好友最高再得 2 亿",
+    freeVal:2000, hasPlan:true, planName:"GLM Coding Plan",
+    planPrice:118, planDetail:"Lite ¥118/月 · Pro ¥538/月 · Max ¥1078/月 · 团队席 ¥598",
+    tools:["Claude Code","ZCode","Kilo Code","Cline 等 20+"],
+    links:{ api:"https://bigmodel.cn/pricing", plan:"https://bigmodel.cn/glm-coding" }
+  },
+  {
+    vendor:"阿里云 通义千问", vendorEn:"QW", color:"#615ced",
+    model:"qwen3.7-flash", tier:"lite",
+    in:0.2, out:0.8, cache:0,
+    priceNote:"Max 为 ¥12 / ¥36（qwen3.8-max 已上线同价）· Plus 为 ¥2 / ¥8（限时 8 折）",
+    free:"新用户开通百炼送 7000 万 tokens（90 天）· 师生再赠 3000 万",
+    freeVal:7000, hasPlan:true, planName:"Token Plan",
+    planPrice:39, planDetail:"Lite ¥39/月 · Standard ¥139/月 · Pro ¥499/月 · 错峰最低 0.2 折",
+    tools:["Claude Code","通义灵码","Cursor"],
+    links:{ api:"https://help.aliyun.com/zh/model-studio/model-pricing", plan:"https://www.aliyun.com/product/bailian" }
+  },
+  {
+    vendor:"火山引擎 豆包", vendorEn:"DB", color:"#1664ff",
+    model:"Doubao-Seed-1.8", tier:"balanced",
+    in:0.8, out:8.0, cache:0.16,
+    priceNote:"0-32K 档；输出 ≤200 tokens 时降至 ¥2；(32,128] 档 ¥1.2 / ¥16 · (128,256] 档 ¥2.4 / ¥24；Evolving / 2.1-pro 为 ¥6 / ¥30 · 2.1-turbo 为 ¥1.5-3 / ¥7.5-15",
+    free:"每个模型 50 万 tokens（30 天）· 新用户再送 ¥10 调用金",
+    freeVal:50, hasPlan:true, planName:"方舟 Coding Plan",
+    planPrice:40, planDetail:"Lite ¥40/月（首月 ¥9.9）· Pro ¥200/月（首月 ¥49.9）· 6 款模型自由切换；方舟 Agent Plan 已上线",
+    tools:["Claude Code","Cursor","Cline","Codex CLI","Kilo Code"],
+    links:{ api:"https://www.volcengine.com/product/yunque", plan:"https://www.volcengine.com/docs/82379/1544106" }
+  },
+  {
+    vendor:"MiniMax", vendorEn:"MM", color:"#d93636",
+    model:"MiniMax-M3", tier:"balanced",
+    in:0.30*FX, out:1.20*FX, cache:0.06*FX,
+    priceNote:"标准档永久 5 折后 $0.30 / $1.20（缓存 $0.06）；>512K 输入档 $0.60 / $2.40；Priority 档 1.5 倍价",
+    free:"M Plan Free 免费档（限量 M3.1 Flash Preview + 图像/语音体验）",
+    freeVal:0, hasPlan:true, planName:"M Plan",
+    planPrice:Math.round(22*FX), planDetail:"Go $22 · Explore $55 · Build $132/月，年付按 10 个月计（$220 / $550 / $1,320）；兼容 Claude Code、Codex、Cursor 等 10+ 工具",
+    tools:["Claude Code","Codex","Cursor","OpenCode","MiniMax Code"],
+    links:{ api:"https://platform.minimax.io/docs/pricing/overview", plan:"https://www.minimax.io/m-plan" }
+  },
+  {
+    vendor:"阶跃星辰 Step", vendorEn:"ST", color:"#00a88f",
+    model:"step-3.5-flash", tier:"lite",
+    in:0.7, out:2.1, cache:0.14,
+    priceNote:"step-5-preview 为 ¥7 / ¥20（缓存命中 ¥0.70，10-14 起由 ¥0.35 上调）；step-3.7-flash 为 ¥1.35 / ¥8.1",
+    free:"Step Plan 订阅限时免费 · 部分语音模型限时免费",
+    freeVal:0, hasPlan:true, planName:"Step Plan",
+    planPrice:0, planDetail:"覆盖旗舰模型的订阅制服务 · 多模型智能路由 · 当前限时免费",
+    tools:["主流 Agent 框架","Claude Code"],
+    links:{ api:"https://platform.stepfun.com/docs/zh/pricing/details", plan:"https://platform.stepfun.com" }
+  },
+  {
+    vendor:"腾讯混元", vendorEn:"HY", color:"#0052d9",
+    model:"Hunyuan-TurboS", tier:"lite",
+    in:0.8, out:0.8, cache:0,
+    priceNote:"Turbo ¥1.2 / ¥4.8 · Hy4 Preview ¥6 / ¥18",
+    free:"首次开通送 100 万 tokens 资源包（1 年有效）",
+    freeVal:100, hasPlan:false, planName:null, planPrice:null,
+    planDetail:"按量后付费，无订阅套餐（功能逐步迁移至 TokenHub）", tools:["—"],
+    links:{ api:"https://cloud.tencent.com/document/api/627/97731", plan:"https://cloud.tencent.com/product/hunyuan" }
+  },
+  {
+    vendor:"百度 文心一言", vendorEn:"ER", color:"#2932e1",
+    model:"ERNIE-Lite-Pro", tier:"lite",
+    in:0.2, out:0.4, cache:0,
+    priceNote:"4.5-Turbo ¥0.8 / ¥3.2 · 5.1 ¥4-6 / ¥18-22 · X1.1 Preview ¥1 / ¥4",
+    free:"新用户 100 万 tokens（3 个月）· 活动期间 8000 万 tokens 包免费领",
+    freeVal:100, hasPlan:false, planName:null, planPrice:null,
+    planDetail:"按量后付费 + 千帆 Token Plan（个人版已上线），无专属 Coding Plan", tools:["—"],
+    links:{ api:"https://qianfan.cloud.baidu.com/modelbuilder", plan:"https://qianfan.cloud.baidu.com" }
+  },
+  {
+    vendor:"OpenAI", vendorEn:"OA", color:"#10a37f",
+    model:"gpt-6.1-sol", tier:"oversea",
+    in:2*FX, out:10*FX, cache:0.10*FX,
+    priceNote:"美元原价 $2 / $10（缓存 $0.10）；长上下文档 $4 / $15；Luna 为 $0.10 / $0.50",
+    free:"无免费额度，需预付费充值",
+    freeVal:0, hasPlan:false, planName:null, planPrice:null,
+    planDetail:"无 Coding Plan，仅按量付费", tools:["—"],
+    links:{ api:"https://developers.openai.com/api/docs/pricing", plan:"https://platform.openai.com" }
+  },
+  {
+    vendor:"Anthropic", vendorEn:"AN", color:"#d97757",
+    model:"Claude Sonnet 5", tier:"oversea",
+    in:2*FX, out:10*FX, cache:0.20*FX,
+    priceNote:"美元原价 $2 / $10（缓存 $0.20）；Opus 4.8 为 $5 / $25，Fable 5 为 $10 / $50，Haiku 4.5 为 $1 / $5",
+    free:"无免费 API 额度",
+    freeVal:0, hasPlan:false, planName:null, planPrice:null,
+    planDetail:"无 Coding Plan，仅按量付费", tools:["—"],
+    links:{ api:"https://platform.claude.com/docs/en/about-claude/pricing", plan:"https://claude.ai/pricing" }
+  },
+  {
+    vendor:"Google", vendorEn:"GO", color:"#4285f4",
+    model:"gemini-3.1-pro", tier:"oversea",
+    in:2*FX, out:12*FX, cache:0.20*FX,
+    priceNote:"美元原价 $2 / $12（缓存 $0.20）；≤200K 上下文档，超出后 $4 / $18；Flash 为 $0.50 / $3",
+    free:"AI Studio 提供限速免费层，可用于评估与轻量生产",
+    freeVal:0, hasPlan:false, planName:null, planPrice:null,
+    planDetail:"无 Coding Plan，仅按量付费", tools:["—"],
+    links:{ api:"https://ai.google.dev/gemini-api/docs/pricing", plan:"https://aistudio.google.com" }
+  }
+];
+
+const TIER_LABEL = { flagship:"旗舰", balanced:"均衡", lite:"轻量", oversea:"海外" };
+const PLAN_SOURCES = [
+  ["DeepSeek 定价", "https://api-docs.deepseek.com/zh-cn/quick_start/pricing"],
+  ["Kimi Code 订阅", "https://www.kimi.com/code"],
+  ["MiMo 开放平台", "https://platform.xiaomimimo.com"],
+  ["GLM Coding Plan", "https://bigmodel.cn/glm-coding"],
+  ["阿里云百炼价格", "https://help.aliyun.com/zh/model-studio/model-pricing"],
+  ["火山方舟 Coding Plan", "https://www.volcengine.com/docs/82379/1544106"],
+  ["MiniMax M Plan", "https://www.minimax.io/m-plan"],
+  ["阶跃星辰定价", "https://platform.stepfun.com/docs/zh/pricing/details"],
+  ["腾讯混元计费", "https://cloud.tencent.com/document/api/627/97731"],
+  ["百度千帆 ModelBuilder", "https://qianfan.cloud.baidu.com/modelbuilder"],
+  ["OpenAI 定价", "https://developers.openai.com/api/docs/pricing"],
+  ["Anthropic 定价", "https://platform.claude.com/docs/en/about-claude/pricing"],
+  ["Google Gemini 定价", "https://ai.google.dev/gemini-api/docs/pricing"]
+];
+
+/* ---------- 派生计算 ---------- */
+MODELS.forEach(m => { m.idx = +(m.in * 3 + m.out).toFixed(2); });
+const byIdx = [...MODELS].sort((a,b) => a.idx - b.idx);
+const top3 = new Set(byIdx.slice(0,3).map(m => m.vendor));
+const maxIdx = Math.max(...MODELS.map(m => m.idx));
+const fmt = n => n >= 100 ? n.toLocaleString("zh-CN") : (Number.isInteger(n) ? n : n.toFixed(2).replace(/0+$/,"").replace(/\.$/,""));
+const price = n => n === 0 ? "—" : "¥" + fmt(n);
+
+/* ---------- 跑马灯 ---------- */
+(function buildTicker(){
+  const items = MODELS.map(m =>
+    `<span><b>${m.vendor}</b> ${m.model} · 输入 ${price(m.in)}/M · 输出 ${price(m.out)}/M${m.hasPlan ? ` · ${m.planName} ${m.planPrice ? price(m.planPrice)+"/月" : "限时免费"}` : " · 无 Coding Plan"}</span>`
+  ).join("");
+  document.getElementById("tickerTrack").innerHTML = items + items; // 双份实现无缝循环
+})();
+
+/* ---------- Hero 焦点块 ---------- */
+(function buildSpotlight(){
+  const best = byIdx[0];
+  document.getElementById("spotNum").innerHTML = "¥" + fmt(best.idx) + "<small> /M</small>";
+  document.getElementById("spotWho").textContent = best.model + " · " + best.vendor;
+  document.querySelector(".spotlight .sub").textContent =
+    TIER_LABEL[best.tier] + "档 · 输入 " + price(best.in) + " / 输出 " + price(best.out) + " 每百万 tokens";
+})();
+
+/* ---------- 统计条 ---------- */
+(function buildStats(){
+  const minIn = Math.min(...MODELS.map(m => m.in));
+  const plans = MODELS.filter(m => m.hasPlan && m.planPrice > 0);
+  const minPlan = plans.length ? Math.min(...plans.map(m => m.planPrice)) : 0;
+  const maxFree = Math.max(...MODELS.map(m => m.freeVal));
+  const noPlan = MODELS.filter(m => !m.hasPlan).length;
+  document.getElementById("stMinIn").innerHTML = price(minIn) + "<small> /M</small>";
+  document.getElementById("stMinPlan").innerHTML = price(minPlan) + "<small> /月</small>";
+  document.getElementById("stMaxFree").innerHTML = fmt(maxFree) + "<small> 万 tokens</small>";
+  document.getElementById("stNoPlan").innerHTML = noPlan + "<small> 家</small>";
+})();
+
+/* ---------- 卡片渲染 ---------- */
+let state = { sort:"idx", filter:"all" };
+function cardHTML(m){
+  const rec = top3.has(m.vendor);
+  const pct = Math.max(6, Math.round(m.idx / maxIdx * 100));
+  const plan = m.hasPlan
+    ? `<div class="plan-line"><span class="plan-yes">✓ ${m.planName} <b>${m.planPrice ? price(m.planPrice) + "/月" : "限时免费"}</b></span></div>`
+    : `<div class="plan-line"><span class="plan-no">✕ 无 Coding Plan · 仅按量付费</span></div>`;
+  return `
+  <article class="card${rec ? " recommended" : ""}">
+    ${rec ? '<span class="stamp-rec">低价推荐 #' + (byIdx.findIndex(x => x.vendor === m.vendor) + 1) + '</span>' : ""}
+    <div class="card-top">
+      <div class="badge" style="background:${m.color}">${m.vendorEn}</div>
+      <div class="vendor">${m.vendor}<small>${m.model}</small></div>
+      <span class="tier${m.tier === "flagship" ? " flagship" : ""}">${TIER_LABEL[m.tier]}</span>
+    </div>
+    <div class="price-row">
+      <div class="price-cell${rec ? " hl" : ""}"><div class="pk">输入 /M</div><div class="pv">${price(m.in)}</div></div>
+      <div class="price-cell"><div class="pk">输出 /M</div><div class="pv">${price(m.out)}</div></div>
+      <div class="price-cell"><div class="pk">缓存命中</div><div class="pv">${price(m.cache)}</div></div>
+    </div>
+    <div class="idx"><span>综合指数</span><span class="bar"><i style="width:${pct}%"></i></span><b>${fmt(m.idx)}</b></div>
+    <div class="free-line"><span class="fl-tag${m.freeVal ? "" : " none"}">${m.freeVal ? "免费 " + fmt(m.freeVal) + "万" : "无额度"}</span><span>${m.free}</span></div>
+    ${plan}
+    <div class="card-links">
+      <a class="btn-link primary" href="${m.links.api}" target="_blank" rel="noopener">API 定价页 <span class="arr">↗</span></a>
+      <a class="btn-link" href="${m.links.plan}" target="_blank" rel="noopener">${m.hasPlan ? "订阅页" : "平台页"} <span class="arr">↗</span></a>
+    </div>
+  </article>`;
+}
+function renderCards(){
+  let list = [...MODELS];
+  if(state.filter === "plan") list = list.filter(m => m.hasPlan);
+  if(state.filter === "noplan") list = list.filter(m => !m.hasPlan);
+  if(state.filter === "flagship") list = list.filter(m => m.tier === "flagship");
+  const key = { idx:"idx", in:"in", out:"out", plan:"planPrice", free:"freeVal" }[state.sort];
+  list.sort((a,b) => key === "freeVal" ? b[key] - a[key] : a[key] - b[key]);
+  const grid = document.getElementById("cardGrid");
+  grid.innerHTML = list.map(cardHTML).join("");
+  grid.querySelectorAll(".card").forEach((c,i) => {
+    c.style.animation = "none";
+    c.classList.add("reveal");
+    requestAnimationFrame(() => setTimeout(() => c.classList.add("in"), 40 * i));
+  });
+}
+
+/* ---------- 对比表 ---------- */
+function renderTable(){
+  const body = document.getElementById("cmpBody");
+  const list = [...MODELS].sort((a,b) => a.idx - b.idx);
+  body.innerHTML = list.map(m => {
+    const rec = top3.has(m.vendor);
+    return `<tr${rec ? ' style="background:var(--accent-tint)"' : ""}>
+      <td><span class="mini-vendor">${m.vendor}<small>${m.model}</small></span></td>
+      <td><span class="pill${m.tier === "flagship" ? " rec" : ""}" style="${m.tier !== "flagship" ? "border:1px solid var(--line-strong);color:var(--muted)" : ""}">${TIER_LABEL[m.tier]}</span></td>
+      <td class="num">${price(m.in)}</td>
+      <td class="num">${price(m.out)}</td>
+      <td class="num">${price(m.cache)}</td>
+      <td>${m.freeVal ? fmt(m.freeVal) + " 万 tokens" : "—"}</td>
+      <td>${m.hasPlan ? '<span class="pill yes">' + m.planName + "</span>" : '<span class="pill no">无 Coding Plan</span>'}</td>
+      <td class="num">${m.hasPlan ? (m.planPrice ? price(m.planPrice) + "/月" : "限时免费") : "—"}</td>
+      <td class="num" style="color:${rec ? "var(--accent)" : "inherit"}">${fmt(m.idx)}${rec ? " ★" : ""}</td>
+      <td><a class="tbl-link" href="${m.links.api}" target="_blank" rel="noopener">定价页 ↗</a></td>
+    </tr>`;
+  }).join("");
+}
+
+/* ---------- Coding Plan 专区 ---------- */
+function renderPlans(){
+  const grid = document.getElementById("planGrid");
+  const sorted = [...MODELS].sort((a,b) => {
+    if(a.hasPlan !== b.hasPlan) return a.hasPlan ? -1 : 1;
+    return (a.planPrice || 0) - (b.planPrice || 0);
+  });
+  grid.innerHTML = sorted.map(m => {
+    if(!m.hasPlan) return `
+      <div class="plan-card no-plan">
+        <div class="pv-head"><div class="badge" style="background:${m.color}">${m.vendorEn}</div><div class="pv-name">${m.vendor}</div></div>
+        <div class="pv-price">无 Coding Plan</div>
+        <ul><li>${m.planDetail}</li><li>仅提供按量付费 API，无固定月费订阅</li></ul>
+      </div>`;
+    return `
+      <div class="plan-card" style="border-left-color:${m.color}">
+        <div class="pv-head"><div class="badge" style="background:${m.color}">${m.vendorEn}</div><div class="pv-name">${m.vendor} · ${m.planName}</div></div>
+        <div class="pv-price">${m.planPrice ? price(m.planPrice) : "免费"}<small> ${m.planPrice ? "/月 起" : "（限时）"}</small></div>
+        <ul>
+          <li>${m.planDetail}</li>
+          <li>支持工具：${m.tools.join(" / ")}</li>
+          <li>API 按量价：输入 ${price(m.in)} / 输出 ${price(m.out)} 每百万 tokens</li>
+        </ul>
+        <a class="btn-link primary" href="${m.links.plan}" target="_blank" rel="noopener">前往订阅 <span class="arr">↗</span></a>
+      </div>`;
+  }).join("");
+}
+
+/* ---------- 来源列表 ---------- */
+(function buildSources(){
+  document.getElementById("srcList").innerHTML = PLAN_SOURCES
+    .map(([n,u]) => `<li><a href="${u}" target="_blank" rel="noopener">${n} ↗</a></li>`).join("");
+})();
+
+/* ---------- 控制栏事件 ---------- */
+document.getElementById("sortSel").addEventListener("change", e => { state.sort = e.target.value; renderCards(); });
+document.getElementById("filterGroup").addEventListener("click", e => {
+  const btn = e.target.closest(".chip"); if(!btn) return;
+  document.querySelectorAll("#filterGroup .chip").forEach(c => c.setAttribute("aria-pressed", c === btn));
+  state.filter = btn.dataset.filter; renderCards();
+});
+
+/* ---------- 滚动入场 ---------- */
+const io = new IntersectionObserver(es => es.forEach(en => {
+  if(en.isIntersecting){ en.target.classList.add("in"); io.unobserve(en.target); }
+}), { threshold:.12 });
+document.querySelectorAll("section .reveal").forEach(el => io.observe(el));
+
+/* ---------- 启动 ---------- */
+renderCards(); renderTable(); renderPlans();
+</script>
+</body>
+</html>
